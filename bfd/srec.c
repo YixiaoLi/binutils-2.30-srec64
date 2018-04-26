@@ -136,6 +136,17 @@ unsigned int _bfd_srec_len = DEFAULT_CHUNK;
    parameter.  */
 bfd_boolean _bfd_srec_forceS3 = FALSE;
 
+/* Generate S-records containing a 64-bit address when necessary.
+   If this variable is FALSE, a warning message will show when
+   it comes to an input section with 64-bit address instead of
+   generating Srecords for that section. */
+bfd_boolean _bfd_srec_64bit_addr_enable = FALSE;
+
+/* The type of an S-record with a 64-bit address field.
+   When this variable is '4', S4 records will be used for 64-bit
+   address. It can also be letters such as 'A'-'Z'. */
+char _bfd_srec_64bit_addr_type = '4';
+
 /* When writing an S-record file, the S-records can not be output as
    they are seen.  This structure is used to hold them in memory.  */
 
@@ -969,6 +980,39 @@ srec_write_record (bfd *abfd,
 
   length = dst;
   dst += 2;			/* Leave room for dst.  */
+
+  /* Found a 64-bit address */
+  if ((address >> 32) != 0)
+    {
+      if (!_bfd_srec_64bit_addr_enable)
+        {
+		  (*_bfd_error_handler) (_("warning: 64-bit address 0x%016lx is ignored, try to use --srec-enable-64bit-addr"), address);
+          return TRUE;
+        }
+
+      /* 64-bit start address not supported yet */
+      if (type >= 7 && type <= 9)
+        {
+		  (*_bfd_error_handler) (_("warning: 64-bit start address 0x%016lx not supported yet, ignored"), address);
+          return TRUE;
+        }
+
+      /* Fix record type */
+      length[-1] = _bfd_srec_64bit_addr_type;
+
+      /* Generate upper 32 bits of address */
+      TOHEX (dst, (address >> 56), check_sum);
+      dst += 2;
+      TOHEX (dst, (address >> 48), check_sum);
+      dst += 2;
+      TOHEX (dst, (address >> 40), check_sum);
+      dst += 2;
+      TOHEX (dst, (address >> 32), check_sum);
+      dst += 2;
+
+      /* Fall through to S3 to generate lower 32 bits and the data */
+      type = 3;
+    }
 
   switch (type)
     {

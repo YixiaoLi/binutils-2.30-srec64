@@ -340,6 +340,7 @@ enum command_line_switch
   OPTION_SET_SECTION_FLAGS,
   OPTION_SET_START,
   OPTION_SREC_FORCES3,
+  OPTION_SREC_64BIT_ADDR,
   OPTION_SREC_LEN,
   OPTION_STACK,
   OPTION_STRIP_DWO,
@@ -472,6 +473,7 @@ static struct option copy_options[] =
   {"set-start", required_argument, 0, OPTION_SET_START},
   {"srec-forceS3", no_argument, 0, OPTION_SREC_FORCES3},
   {"srec-len", required_argument, 0, OPTION_SREC_LEN},
+  {"srec-enable-64bit-addr", optional_argument, 0, OPTION_SREC_64BIT_ADDR},
   {"stack", required_argument, 0, OPTION_STACK},
   {"strip-all", no_argument, 0, 'S'},
   {"strip-debug", no_argument, 0, 'g'},
@@ -510,6 +512,17 @@ extern unsigned int _bfd_srec_len;
    This variable is defined in bfd/srec.c and can be toggled
    on by the --srec-forceS3 command line switch.  */
 extern bfd_boolean _bfd_srec_forceS3;
+
+/* Generate S-records containing a 64-bit address when necessary.
+   This variable is declared is srec.c and can be toggled
+   on by the --srec-enable-64bit-addr command line switch.  */
+extern bfd_boolean _bfd_srec_64bit_addr_enable;
+
+/* The type of an S-record with a 64-bit address field.
+   It must NOT be the standard type ('0'-'3', '5'-'9').
+   This variable is declared is srec.c and can be modified
+   by the --srec-enable-64bit-addr parameter.  */
+extern char _bfd_srec_64bit_addr_type;
 
 /* Forward declarations.  */
 static void setup_section (bfd *, asection *, void *);
@@ -611,6 +624,9 @@ copy_usage (FILE *stream, int exit_status)
                                      listed in <file>\n\
      --srec-len <number>           Restrict the length of generated Srecords\n\
      --srec-forceS3                Restrict the type of generated Srecords to S3\n\
+     --srec-enable-64bit-addr=[<type>]\n\
+                                   Generate Srecords with 64-bit address when necessary.\n\
+                                   Default type is 4, which means S4 will be used.\n\
      --strip-symbols <file>        -N for all symbols listed in <file>\n\
      --strip-unneeded-symbols <file>\n\
                                    --strip-unneeded-symbol for all symbols listed\n\
@@ -5200,6 +5216,21 @@ copy_main (int argc, char *argv[])
 
 	case OPTION_SREC_FORCES3:
 	  _bfd_srec_forceS3 = TRUE;
+	  break;
+
+	case OPTION_SREC_64BIT_ADDR:
+      _bfd_srec_64bit_addr_enable = TRUE;
+      if (optarg)
+        {
+          if (strlen(optarg) == 1)
+            _bfd_srec_64bit_addr_type = optarg[0];
+          else
+	        fatal (_("error: type of Srecord with 64-bit address must be a single character"));
+          if (_bfd_srec_64bit_addr_type >= '0' && _bfd_srec_64bit_addr_type <= '9' 
+              && _bfd_srec_64bit_addr_type != '4')
+	        fatal (_("error: type of Srecord with 64-bit address must NOT be standard type S%c"), 
+                    _bfd_srec_64bit_addr_type);
+        }
 	  break;
 
 	case OPTION_STRIP_SYMBOLS:
